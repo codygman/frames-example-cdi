@@ -17,7 +17,8 @@ executable frames-chronic-disease-indicators
   hs-source-dirs:      src
   main-is:             Main.hs
   default-language:    Haskell2010
-  build-depends:       base >= 4.7 && < 5
-                     , Frames
-                     , text
+  build-depends:       Frames
+                     , base >= 4.7 && < 5
                      , pipes
+                     , text
+                     , unordered-containers >= 0.2.7.1

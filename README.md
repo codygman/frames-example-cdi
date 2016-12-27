@@ -112,8 +112,37 @@ What other topics are there besides Alcohol?
 {YearStart :-> 2014, YearEnd :-> 2014, LocationAbbr :-> "DC", Topic :-> "Arthritis"}
 ```
 
+Below is the implementation of the `distinctTopics` function:
+
 ```haskell
+distinctTopics rowProducer = do
+  -- build a set by iterating over all rows and inserting topic values
+  -- topicMap <- P.fold (\m r -> M.insert (view lens1 (r :: Record checkRec)) (0 :: Int8) m) M.empty id checkProducer
+  topics <- P.fold
+              (\accumSet currentRow -> HS.insert (rget topic currentRow) accumSet) -- what we build up the set with
+              HS.empty -- initial value
+              id -- we just want to return the value we inserted, nothing more
+              rowProducer -- our rowProducer, in this specific case it is just `rows`
+  print topics
 ```
+
+This breaks our pipes paradigm a little, but I don't currently know of a better way to do it so this will suffice:
+
+```haskell
+λ> distinctTopics (rows >-> P.filter (\row -> rget locationAbbr row == "DC" && rget topic row /= "Alcohol") >-> P.map (select [pr|YearStart,YearEnd,LocationAbbr,Topic|]))
+fromList ["Arthritis","Overarching Conditions","Diabetes","Chronic Obstructive Pulmonary Disease","Immunization","Oral Health","Nutrition, Physical Activity, and Weight Status","Tobacco","Chronic kidney disease","Chronic Kidney Disease","Asthma","Reproductive Health","Cancer","Cardiovascular Disease","Mental Health","Older Adults"]
+(2.28 secs, 9,068,133,336 bytes)
+```
+
+I turned on the `:set +s` option in ghci which shows the time it took for a function to execute and the number of total bytes allocated throughout the functions execution. You can see this was pretty snappy for a...
+
+```
+λ> P.length rows
+141382
+(1.78 secs, 7,828,251,384 bytes)
+```
+
+Yes, a 141,382 row csv file.
 
 ```haskell
 ```
