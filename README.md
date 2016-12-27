@@ -91,14 +91,30 @@ A common error I make is forgetting to add on an "effect" at the end such as `P.
                 >-> P.filter (\ row -> rget locationAbbr row == "DC")
 ```
 
+Usually I don't care about all of the data, so let's see how limiting it looks:
 
+```haskell
+λ> runEffect $ rows >-> P.filter (\row -> rget locationAbbr row == "DC") >-> P.map (select [pr|YearStart,YearEnd,LocationAbbr,Topic|]) >-> P.take 5 >-> P.print
+{YearStart :-> 2013, YearEnd :-> 2013, LocationAbbr :-> "DC", Topic :-> "Alcohol"}
+{YearStart :-> 2013, YearEnd :-> 2013, LocationAbbr :-> "DC", Topic :-> "Alcohol"}
+{YearStart :-> 2014, YearEnd :-> 2014, LocationAbbr :-> "DC", Topic :-> "Alcohol"}
+{YearStart :-> 2014, YearEnd :-> 2014, LocationAbbr :-> "DC", Topic :-> "Alcohol"}
+{YearStart :-> 2014, YearEnd :-> 2014, LocationAbbr :-> "DC", Topic :-> "Alcohol"}
+```
+
+What other topics are there besides Alcohol?
+```haskell
+λ> runEffect $ rows >-> P.filter (\row -> rget locationAbbr row == "DC" && rget topic row /= "Alcohol") >-> P.map (select [pr|YearStart,YearEnd,LocationAbbr,Topic|]) >-> P.take 5 >-> P.print
+{YearStart :-> 2014, YearEnd :-> 2014, LocationAbbr :-> "DC", Topic :-> "Arthritis"}
+{YearStart :-> 2014, YearEnd :-> 2014, LocationAbbr :-> "DC", Topic :-> "Arthritis"}
+{YearStart :-> 2014, YearEnd :-> 2014, LocationAbbr :-> "DC", Topic :-> "Arthritis"}
+{YearStart :-> 2014, YearEnd :-> 2014, LocationAbbr :-> "DC", Topic :-> "Arthritis"}
+{YearStart :-> 2014, YearEnd :-> 2014, LocationAbbr :-> "DC", Topic :-> "Arthritis"}
+```
 
 ```haskell
 ```
-```haskell
-```
-```haskell
-```
+
 ```haskell
 ```
 ```haskell
