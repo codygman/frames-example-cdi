@@ -39,5 +39,9 @@ groupTopics = P.fold
                 M.empty
                 id
 
+biggestTopicsPerState = do
+  grouped <- groupTopics rows
+  mapM_ print $ M.toList (take 10 . reverse . M.toDescList <$> grouped)
+
 main :: IO ()
 main = groupTopics rows >>= print
