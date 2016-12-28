@@ -5,7 +5,45 @@ frames example using US chronic disease indicators
 
 ### 2. Follow along
 
-Previewing the data:
+First let's take a look at the function which generates types based on csv files, tableTypes:
+
+```haskell
+λ> :t tableTypes
+tableTypes
+  :: String
+     -> FilePath
+     -> template-haskell-2.11.0.0:Language.Haskell.TH.Lib.DecsQ
+```
+
+It takes a String that will be the name of the type generated, a filepath to the csv, and then returns a template Haskell DecsQ value that is built at compile time.
+
+Let's see what types were generated from `data/U.S._Chronic_Disease_Indicators__CDI_.csv`:
+
+```
+λ> :i Row
+type Row =
+  Record
+    '["YearStart" :-> Int, "YearEnd" :-> Int, "LocationAbbr" :-> Text,
+      "LocationDesc" :-> Text, "DataSource" :-> Text, "Topic" :-> Text,
+      "Question" :-> Text, "Response" :-> Text, "DataValueUnit" :-> Text,
+      "DataValueTypeID" :-> Text, "DataValueType" :-> Text,
+      "DataValue" :-> Double, "DataValueAlt" :-> Double,
+      "DataValueFootnoteSymbol" :-> Text, "DatavalueFootnote" :-> Text,
+      "LowConfidenceLimit" :-> Double, "HighConfidenceLimit" :-> Double,
+      "StratificationCategory1" :-> Text, "Stratification1" :-> Text,
+      "StratificationCategory2" :-> Text, "Stratification2" :-> Text,
+      "StratificationCategory3" :-> Text, "Stratification3" :-> Text,
+      "GeoLocation" :-> Text, "TopicID" :-> Text, "QuestionID" :-> Text,
+      "ResponseID" :-> Text, "LocationID" :-> Int,
+      "StratificationCategoryID1" :-> Text, "StratificationID1" :-> Text,
+      "StratificationCategoryID2" :-> Text, "StratificationID2" :-> Text,
+      "StratificationCategoryID3" :-> Text, "StratificationID3" :-> Text]
+  	-- Defined at /home/cody/source/frames-chronic-disease-indicators/src/Main.hs:16:1
+```
+
+That all looks sane to me. I always check to see that all my columns are there and that they were inferred as the right type.
+
+Let's move on to previewing the data:
 
 ```haskell
 λ> pipePreview rows 3 cat -- cat is the identity pipe and gets its name from the unix utility "cat"
