@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -9,6 +10,8 @@ import Frames.CSV
 import Pipes hiding (Proxy)
 import qualified Pipes.Prelude as P
 import qualified Data.HashSet as HS
+import qualified Data.Map as M
+import Control.Lens
 
 tableTypes "Row"  "data/U.S._Chronic_Disease_Indicators__CDI_.csv"
 
@@ -24,5 +27,17 @@ distinctTopics rowProducer = do
               rowProducer -- our rowProducer, in this specific case it is just `rows`
   print topics
 
+groupTopics :: ( Topic ∈ rs
+               , LocationAbbr ∈ rs
+               , Monad m) =>
+               Producer (Record rs) m () -> m (M.Map Text (M.Map Text Integer))
+groupTopics = P.fold
+                (\accum currentRow ->
+                    accum & at (rget locationAbbr currentRow) . non' _Empty -- if the locationAbbr isn't created, create with an empty map
+                          . at (rget topic currentRow) . non 0 +~ 1         -- if topic for given locationAbbr doesn't exist, initialize at 0 and add 1
+                )
+                M.empty
+                id
+
 main :: IO ()
-main = pipePreview rows 3 cat -- cat is the identity pipe and gets its name from the unix utility "cat"
+main = groupTopics rows >>= print

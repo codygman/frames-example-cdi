@@ -23,3 +23,4 @@ executable frames-chronic-disease-indicators
                      , pipes
                      , text
                      , unordered-containers >= 0.2.7.1
+                     , lens
