@@ -442,3 +442,192 @@ fromList [("TX",fromList [("Alcohol",1)])]
 fromList [("TX",fromList [("Alcohol",1)])]
 λ> -- what is the difference between non and non'? I don't know or care too much at the moment, but that's okay! You don't have to deeply understand or memorize all of the pieces here to get real work done :)
 ```
+
+Now let's do something simple. Let's use `wc -l` to see how many lines there are in this csv file:
+
+```shell
+cody@zentop:~/source/frames-chronic-disease-indicators$ wc -l data/U.S._Chronic_Disease_Indicators__CDI_.csv 
+237962 data/U.S._Chronic_Disease_Indicators__CDI_.csv
+```
+
+We can also see how many results a producer has with Frames and Pipes:
+
+```
+λ> P.length rows
+141382
+```
+
+Wait... what's going on here? We are missing just under 100,000 rows! Specifically:
+
+```haskell
+λ> 237962 - 1 -- subtract header row
+237961
+λ> 237961 - 141382
+96579
+```
+
+Exactly 96579 rows are missing :/
+
+Why? To find out we need to examine our rows producer:
+
+```haskell
+rows :: Producer Row IO ()
+rows = readTableOpt rowParser "data/U.S._Chronic_Disease_Indicators__CDI_.csv"
+```
+
+It produces values of the type:
+
+```haskell
+λ> :i Row
+type Row =
+  Record
+    '["YearStart" :-> Int, "YearEnd" :-> Int, "LocationAbbr" :-> Text,
+      "LocationDesc" :-> Text, "DataSource" :-> Text, "Topic" :-> Text,
+      "Question" :-> Text, "Response" :-> Text, "DataValueUnit" :-> Text,
+      "DataValueTypeID" :-> Text, "DataValueType" :-> Text,
+      "DataValue" :-> Double, "DataValueAlt" :-> Double,
+      "DataValueFootnoteSymbol" :-> Text, "DatavalueFootnote" :-> Text,
+      "LowConfidenceLimit" :-> Double, "HighConfidenceLimit" :-> Double,
+      "StratificationCategory1" :-> Text, "Stratification1" :-> Text,
+      "StratificationCategory2" :-> Text, "Stratification2" :-> Text,
+      "StratificationCategory3" :-> Text, "Stratification3" :-> Text,
+      "GeoLocation" :-> Text, "TopicID" :-> Text, "QuestionID" :-> Text,
+      "ResponseID" :-> Text, "LocationID" :-> Int,
+      "StratificationCategoryID1" :-> Text, "StratificationID1" :-> Text,
+      "StratificationCategoryID2" :-> Text, "StratificationID2" :-> Text,
+      "StratificationCategoryID3" :-> Text, "StratificationID3" :-> Text]
+  	-- Defined at /home/cody/source/frames-chronic-disease-indicators/src/Main.hs:17:1
+```
+
+Next we need to examine the Record type a little more:
+
+```
+λ> :i Record
+type Record = Rec Data.Vinyl.Functor.Identity :: [*] -> *
+  	-- Defined in ‘Frames.Rec’
+```
+
+The `[*]` in this case would be the list of Fields: `'["YearStart" :-> Int, ... "StratificationID3" :-> Text]`
+
+So if import Data.Vinyl.Functor to unqualify Identity and write out the Rec type we would have:
+
+```haskell
+  Rec Identity
+    '["YearStart" :-> Int, "YearEnd" :-> Int, "LocationAbbr" :-> Text,
+      "LocationDesc" :-> Text, "DataSource" :-> Text, "Topic" :-> Text,
+      "Question" :-> Text, "Response" :-> Text, "DataValueUnit" :-> Text,
+      "DataValueTypeID" :-> Text, "DataValueType" :-> Text,
+      "DataValue" :-> Double, "DataValueAlt" :-> Double,
+      "DataValueFootnoteSymbol" :-> Text, "DatavalueFootnote" :-> Text,
+      "LowConfidenceLimit" :-> Double, "HighConfidenceLimit" :-> Double,
+      "StratificationCategory1" :-> Text, "Stratification1" :-> Text,
+      "StratificationCategory2" :-> Text, "Stratification2" :-> Text,
+      "StratificationCategory3" :-> Text, "Stratification3" :-> Text,
+      "GeoLocation" :-> Text, "TopicID" :-> Text, "QuestionID" :-> Text,
+      "ResponseID" :-> Text, "LocationID" :-> Int,
+      "StratificationCategoryID1" :-> Text, "StratificationID1" :-> Text,
+      "StratificationCategoryID2" :-> Text, "StratificationID2" :-> Text,
+      "StratificationCategoryID3" :-> Text, "StratificationID3" :-> Text]
+```
+
+So what is the type of Rec anyway?
+
+```haskell
+data Rec (a :: u -> *) (b :: [u]) where
+  RNil :: forall u (a :: u -> *). Rec a '[]
+  (:&) :: forall u (a :: u -> *) (r :: u) (rs :: [u]).
+       !(a r) -> !(Rec a rs) -> Rec a (r : rs)
+```
+
+We'll assume the Identity case to make sense of this:
+
+- a is Identity
+- r is a single item in the type level list of the entire record, rs is the remaining portion of the type level list
+
+So why not just have `Rec rs`? What is the use of being able to supply almost any `a` in the `Rec a rs`?
+
+You can supply your own functor! If you don't understand what that means, don't worry about it too much. For us it means
+that we can replace Identity with Maybe.
+
+From `Rec Identity rs` to `Rec Maybe rs`. The function readTableMaybeOpt does just this. Below are the type signatures of readTableOpt (our current producer function) and readTableMaybeOpt:
+
+```haskell
+λ> :t readTableOpt
+readTableOpt
+  :: (ReadRec rs, MonadIO m) =>
+     ParserOptions -> FilePath -> Producer (Record rs) m () -- Notice the type synonmy `Record` is used, but that's the same as `Rec Identity rs`
+λ> :t readTableMaybeOpt
+readTableMaybeOpt
+  :: (ReadRec rs, MonadIO m) =>
+     ParserOptions -> FilePath -> Producer (Rec Maybe rs) m ()
+```
+
+The best way to show why this is useful is just to print out some rows with our new producer:
+
+```haskell
+-- our new producer definition
+rows' :: Producer (ColFun Maybe Row) IO ()
+rows' = readTableMaybeOpt rowParser "data/U.S._Chronic_Disease_Indicators__CDI_.csv"
+```
+
+```haskell
+λ> pipePreview rows' 1 cat
+{Just YearStart :-> 2013, Just YearEnd :-> 2013, Just LocationAbbr :-> "CA", Just LocationDesc :-> "California", Just DataSource :-> "YRBSS", Just Topic :-> "Alcohol", Just Question :-> "Alcohol use among youth", Just Response :-> "", Just DataValueUnit :-> "%", Just DataValueTypeID :-> "CrdPrev", Just DataValueType :-> "Crude Prevalence", Nothing, Nothing, Just DataValueFootnoteSymbol :-> "-", Just DatavalueFootnote :-> "No data available", Nothing, Nothing, Just StratificationCategory1 :-> "Overall", Just Stratification1 :-> "Overall", Just StratificationCategory2 :-> "", Just Stratification2 :-> "", Just StratificationCategory3 :-> "", Just Stratification3 :-> "", Just GeoLocation :-> "(37.63864012300047, -120.99999953799971)", Just TopicID :-> "ALC", Just QuestionID :-> "ALC1_1", Just ResponseID :-> "", Just LocationID :-> 6, Just StratificationCategoryID1 :-> "OVERALL", Just StratificationID1 :-> "OVR", Just StratificationCategoryID2 :-> "", Just StratificationID2 :-> "", Just StratificationCategoryID3 :-> "", Just StratificationID3 :-> ""}
+```
+
+TODO: Update Rec Maybe instance so that Nothing's still have a column name to make tracking down failures/holes easier
+
+So everything is now wrapped in the Maybe monad... cool! But wait... why is this useful? Notice that some of the column values have `Nothing` instead of a value. What does Frames do when it encounters a `Nothing` or a value it can't parse in the Identity Monad?
+
+It skips it! This is the reason some of our rows were just silently skipped over!
+
+Now eliding some details, I'll tell you there is a function called `recMaybe :: Rec Maybe cs -> Maybe (Record cs)` that creates our original `Record` type from some `Rec Maybe cs`. I'll also tell you that we can use this in a pipes filter operation to find records that failed to parse:
+
+```haskell
+λ> pipePreview rows' 1 (P.filter (\r -> recMaybe r == Nothing))
+{Just YearStart :-> 2013, Just YearEnd :-> 2013, Just LocationAbbr :-> "CA", Just LocationDesc :-> "California", Just DataSource :-> "YRBSS", Just Topic :-> "Alcohol", Just Question :-> "Alcohol use among youth", Just Response :-> "", Just DataValueUnit :-> "%", Just DataValueTypeID :-> "CrdPrev", Just DataValueType :-> "Crude Prevalence", Nothing, Nothing, Just DataValueFootnoteSymbol :-> "-", Just DatavalueFootnote :-> "No data available", Nothing, Nothing, Just StratificationCategory1 :-> "Overall", Just Stratification1 :-> "Overall", Just StratificationCategory2 :-> "", Just Stratification2 :-> "", Just StratificationCategory3 :-> "", Just Stratification3 :-> "", Just GeoLocation :-> "(37.63864012300047, -120.99999953799971)", Just TopicID :-> "ALC", Just QuestionID :-> "ALC1_1", Just ResponseID :-> "", Just LocationID :-> 6, Just StratificationCategoryID1 :-> "OVERALL", Just StratificationID1 :-> "OVR", Just StratificationCategoryID2 :-> "", Just StratificationID2 :-> "", Just StratificationCategoryID3 :-> "", Just StratificationID3 :-> ""}
+```
+
+Then we can see how many failed to parse with:
+
+```haskell
+λ> P.length (rows' >-> P.filter (\r -> recMaybe r == Nothing))
+96579
+```
+
+Does that number look familiar? Good! (hint: it is the number of rows we deduced was missing with wc -l and the number of rows we had).
+
+
+Cool. So what can we actually do? Well, that depends on how you want to handle nulls in your data. In my case I find that it's usually okay to assign a zero value or default value. I created a function called `defaultingProducer` in my [frames-diff package](https://github.com/codygman/frames-diff).
+
+You can see the defaulting rules [here](https://github.com/codygman/frames-diff/blob/master/Frames/Diff.hs#L40) or inline below:
+
+```haskell
+instance Default (s :-> Int) where def = Col 0
+instance Default (s :-> Text) where def = Col mempty
+instance Default (s :-> Double) where def = Col 0.0
+instance Default (s :-> Bool) where def = Col False
+```
+
+It can be used like so (after adding frames-diff to your cabal file):
+
+```haskell
+rows'' :: Producer Row IO ()
+rows'' = defaultingProducer "data/U.S._Chronic_Disease_Indicators__CDI_.csv" "a string label used in errors for your convenience"
+```
+
+Then we can get the length:
+
+```haskell
+λ> P.length rows''
+237961
+```
+
+Taking advantage of the fact that we found out the first record our producer produces had some Nothing's, we can see what it looks like now with the defaultingProducer:
+
+```haskell
+λ> pipePreview rows'' 1 cat
+{YearStart :-> 2013, YearEnd :-> 2013, LocationAbbr :-> "CA", LocationDesc :-> "California", DataSource :-> "YRBSS", Topic :-> "Alcohol", Question :-> "Alcohol use among youth", Response :-> "", DataValueUnit :-> "%", DataValueTypeID :-> "CrdPrev", DataValueType :-> "Crude Prevalence", DataValue :-> 0.0, DataValueAlt :-> 0.0, DataValueFootnoteSymbol :-> "-", DatavalueFootnote :-> "No data available", LowConfidenceLimit :-> 0.0, HighConfidenceLimit :-> 0.0, StratificationCategory1 :-> "Overall", Stratification1 :-> "Overall", StratificationCategory2 :-> "", Stratification2 :-> "", StratificationCategory3 :-> "", Stratification3 :-> "", GeoLocation :-> "(37.63864012300047, -120.99999953799971)", TopicID :-> "ALC", QuestionID :-> "ALC1_1", ResponseID :-> "", LocationID :-> 6, StratificationCategoryID1 :-> "OVERALL", StratificationID1 :-> "OVR", StratificationCategoryID2 :-> "", StratificationID2 :-> "", StratificationCategoryID3 :-> "", StratificationID3 :-> ""}
+```
+
+Notice that instead of being nothing, fields such as `DataValue` are defaulted to to 0.0 or their respective type defaults. As a result we can still do calculations on all rows, including those which might have holes in them.

@@ -12,11 +12,31 @@ import qualified Pipes.Prelude as P
 import qualified Data.HashSet as HS
 import qualified Data.Map as M
 import Control.Lens
+import Data.Vinyl.Core
+import Frames.Diff
 
 tableTypes "Row"  "data/U.S._Chronic_Disease_Indicators__CDI_.csv"
 
 rows :: Producer Row IO ()
 rows = readTableOpt rowParser "data/U.S._Chronic_Disease_Indicators__CDI_.csv"
+
+-- try to find record which isn't parsing
+rows' :: Producer (ColFun Maybe Row) IO ()
+rows' = readTableMaybeOpt rowParser "data/U.S._Chronic_Disease_Indicators__CDI_.csv"
+
+rows'' :: Producer Row IO ()
+rows'' = defaultingProducer "data/U.S._Chronic_Disease_Indicators__CDI_.csv" "rows'''"
+
+
+-- how do I find the record before the one that turns out to be a Nothing?
+-- you just filter records who evaluate to nothing after applying the recMaybe function:
+-- pipePreview rows' 5 (P.filter (\r -> recMaybe r == Nothing))
+
+-- length of rows should be 237962 after subtracting header:
+-- cody@zentop:~/source/frames-chronic-disease-indicators/src$ wc -l ../data/U.S._C
+-- hronic_Disease_Indicators__CDI_.csv 
+--    237962 ../data/U.S._Chronic_Disease_Indicators__CDI_.csv
+
 
 distinctTopics rowProducer = do
   -- build a set by iterating over all rows and inserting topic values into a Set

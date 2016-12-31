@@ -20,7 +20,9 @@ executable frames-chronic-disease-indicators
   build-depends:       Frames
                      , base >= 4.7 && < 5
                      , containers >= 0.5.7.1
+                     , lens
                      , pipes
                      , text
                      , unordered-containers >= 0.2.7.1
-                     , lens
+                     , vinyl >= 0.5.3
+                     , frames-diff
