@@ -10,7 +10,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/codygman/frames-diff.git
-    commit: 4904ce1e16a7d62145ff9bcc55e9df008fdf4af8
+    commit: 1546609f7d6fa26c2b2d014036b5f57dc5d0671f
   extra-dep: true
 extra-deps:
 - tz-0.1.2.0

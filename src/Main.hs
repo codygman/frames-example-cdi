@@ -32,6 +32,12 @@ rows'' = defaultingProducer "data/U.S._Chronic_Disease_Indicators__CDI_.csv" "ro
 -- you just filter records who evaluate to nothing after applying the recMaybe function:
 -- pipePreview rows' 5 (P.filter (\r -> recMaybe r == Nothing))
 
+-- writing CA location rows to file:
+-- rows' <- inCoreAoS (rows >-> P.filter (\r -> rget locationAbbr r == "CA"))
+-- λ> writeCSV  "/tmp/ca.csv" rows'
+-- (0.09 secs, 235,231,984 bytes)
+
+
 -- length of rows should be 237962 after subtracting header:
 -- cody@zentop:~/source/frames-chronic-disease-indicators/src$ wc -l ../data/U.S._C
 -- hronic_Disease_Indicators__CDI_.csv 
@@ -58,6 +64,10 @@ groupTopics = P.fold
                 )
                 M.empty
                 id
+
+testInnerJoin = do
+  joined <- innerJoin rows'' highConfidenceLimit rows'' highConfidenceLimit
+  mapM_ (print . frameRow joined) [50..55]
 
 biggestTopicsPerState = do
   grouped <- groupTopics rows
