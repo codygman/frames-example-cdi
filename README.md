@@ -631,3 +631,35 @@ Taking advantage of the fact that we found out the first record our producer pro
 ```
 
 Notice that instead of being nothing, fields such as `DataValue` are defaulted to to 0.0 or their respective type defaults. As a result we can still do calculations on all rows, including those which might have holes in them.
+
+
+
+## TODO
+- Explain why the obvious approach to setting a value in list of records won't work and show how it's actually done
+
+obvious attempt:
+
+```haskell
+λ> pipePreview transactions 2 (P.map (\r -> T.reverse (rget serviceArea r)))
+"secivreS snerdlihC"
+"secivreS snerdlihC"
+```
+
+
+actual:
+
+```haskell
+λ> pipePreview transactions 2 (P.map (\r -> rput serviceArea (T.reverse $ rget serviceArea r) r))
+{Service Area :-> "secivreS snerdlihC", Account Description :-> "IT Services", Creditor :-> "123-REG.CO.UK", Transaction Date :-> Chicago (TimeIn 2014-04-23 05:00:00 UTC), JV Reference :-> 93, JV Date :-> Chicago (TimeIn 2014-05-20 05:00:00 UTC), JV Value :-> 143.81}
+{Service Area :-> "secivreS snerdlihC", Account Description :-> "Equipment and Materials Repair", Creditor :-> "AFE SERVICELINE", Transaction Date :-> Chicago (TimeIn 2014-04-02 05:00:00 UTC), JV Reference :-> 6, JV Date :-> Chicago (TimeIn 2014-05-20 05:00:00 UTC), JV Value :-> 309.38}
+```
+
+- give concrete example of tableTypes invocation that creates Row so the link between the tableTypes type/invocation and the Row type is obvious
+- give more context for generalizing
+- introduce Select first to cut down on noise, possibly show that it's just Proxy :: TypeOf Column values being "projected"
+- fix pipePreview equivalent example that uses take before the filter
+- in first `rget lens row` example wrap it in parens to make precedence obvious
+- delete spurious comment from distinctOn example
+- use bindings for filters to make them named functions to encourage creating descriptive and composable pipelines as well as cut down on noise
+- on distinctTopics example point out that we use id because unlike Prelude.fold, the Pipes.fold function also takes a callback applied to every accumulated value. Erase comment that is only useful for people that know what is going on.
+- after building distinctTopics tell user about generalized distinctOn function in my library
